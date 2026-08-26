@@ -6,7 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { UserPlus, Mail, Shield, User as UserIcon } from "lucide-react";
+import { UserPlus, Mail, Shield, User as UserIcon, Trash2 } from "lucide-react";
 
 export default function TeamSettings() {
   const [users, setUsers] = useState<any[]>([]);
@@ -41,6 +41,17 @@ export default function TeamSettings() {
       toast({ title: "Failed to add member", description: e.message, variant: "destructive" });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleRemove = async (u: any) => {
+    if (!confirm(`Remove ${u.email}? They'll immediately lose access to the app.`)) return;
+    try {
+      await User.delete(u.id);
+      toast({ title: "Member removed", description: u.email });
+      setUsers(users.filter((x) => x.id !== u.id));
+    } catch (e: any) {
+      toast({ title: "Couldn't remove", description: e.message, variant: "destructive" });
     }
   };
 
@@ -100,10 +111,19 @@ export default function TeamSettings() {
                   <p className="text-xs text-slate-400">{u.name || "No name set"}</p>
                 </div>
               </div>
-              <span className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border border-slate-200 text-slate-600">
-                {u.role === "admin" ? <Shield className="w-3 h-3" /> : <UserIcon className="w-3 h-3" />}
-                {u.role === "admin" ? "Approver" : "Member"}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border border-slate-200 text-slate-600">
+                  {u.role === "admin" ? <Shield className="w-3 h-3" /> : <UserIcon className="w-3 h-3" />}
+                  {u.role === "admin" ? "Approver" : "Member"}
+                </span>
+                <button
+                  onClick={() => handleRemove(u)}
+                  title="Remove member"
+                  className="text-slate-300 hover:text-red-500"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
           {users.length === 0 && (

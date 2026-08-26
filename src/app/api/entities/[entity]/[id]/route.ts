@@ -5,6 +5,7 @@ import {
   recordToApi,
   payloadToPrisma,
 } from "@/lib/entities";
+import { getCurrentUser } from "@/lib/current-user";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,16 @@ export async function DELETE(
   const { entity, id } = params;
   if (!isEntity(entity)) {
     return NextResponse.json({ error: "Unknown entity" }, { status: 404 });
+  }
+  // Guard: don't let someone delete their own account (would lock them out).
+  if (entity === "User") {
+    const me = await getCurrentUser();
+    if (me && me.id === id) {
+      return NextResponse.json(
+        { error: "You can't remove your own account." },
+        { status: 400 }
+      );
+    }
   }
   await delegateFor(entity).delete({ where: { id } });
   return NextResponse.json({ ok: true });
