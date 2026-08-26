@@ -8,11 +8,28 @@ export type CurrentUser = {
   name: string | null;
 };
 
+/** Auth is OFF until we're ready to add the team (set AUTH_ENABLED=true to turn on). */
+export const AUTH_ENABLED = process.env.AUTH_ENABLED === "true";
+
+// When auth is off, the app runs as this single admin.
+const SOLO_ADMIN_EMAIL = "sabbadoo32@gmail.com";
+
+async function soloAdmin(): Promise<CurrentUser | null> {
+  const admin = await prisma.user.upsert({
+    where: { email: SOLO_ADMIN_EMAIL },
+    update: {},
+    create: { email: SOLO_ADMIN_EMAIL, name: "Sebastian", role: "admin" },
+  });
+  return { id: admin.id, email: admin.email, role: "admin", name: admin.name };
+}
+
 /**
- * Resolve the logged-in user from the Supabase session, mapped to our User row
- * (the allowlist / role store). Returns null if not authenticated or not on the team.
+ * Resolve the current user. With auth off, returns the solo admin so the whole
+ * app just works. With auth on, reads the Supabase session + allowlist.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  if (!AUTH_ENABLED) return soloAdmin();
+
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return null;
   }

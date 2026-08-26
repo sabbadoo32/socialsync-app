@@ -7,6 +7,11 @@ const PUBLIC_PREFIXES = ["/login", "/auth", "/api/cron", "/api/platforms", "/api
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Auth is off until AUTH_ENABLED=true — open app, no login gate.
+  if (process.env.AUTH_ENABLED !== "true") {
+    return response;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   // If Supabase isn't configured, don't crash every route — just pass through.
