@@ -7,13 +7,15 @@ import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Upload, Search, Trash2, Image as ImageIcon, Video } from "lucide-react";
+import DriveImport from "@/components/DriveImport";
+import { Upload, Search, Trash2, Image as ImageIcon, Video, HardDrive } from "lucide-react";
 
 export default function MediaLibrary() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
+  const [driveOpen, setDriveOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -68,11 +70,16 @@ export default function MediaLibrary() {
   return (
     <div className="p-6 md:p-8">
       <PageHeader title="Media Library" subtitle="Shared assets your team can reuse">
+        <Button variant="outline" onClick={() => setDriveOpen(true)}>
+          <HardDrive className="w-4 h-4 mr-1.5" /> Import from Drive
+        </Button>
         <Button onClick={() => fileRef.current?.click()} className="bg-indigo-600 hover:bg-indigo-700">
           <Upload className="w-4 h-4 mr-1.5" /> {uploading ? "Uploading..." : "Upload"}
         </Button>
         <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => handleUpload(e.target.files)} />
       </PageHeader>
+
+      <DriveImport open={driveOpen} onClose={() => setDriveOpen(false)} onImported={loadAssets} />
 
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
