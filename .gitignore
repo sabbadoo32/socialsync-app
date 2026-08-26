@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env*.local
+.DS_Store
+*.log
+/prisma/*.db
+
+# Secrets / scratch — never commit
+stuff.txt
+
+# Reference copies of the Base44 source (not part of the deployed app)
+socialsync_src
+base44_export
+lyrical-sync-social-stream.zip
+npm-cache

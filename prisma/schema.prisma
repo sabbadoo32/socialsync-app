@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (mirror SocialSync's Base44 entity model)
+// ---------------------------------------------------------------------------
+
+enum Role {
+  admin
+  user
+}
+
+enum Platform {
+  facebook
+  instagram
+  bluesky
+  tiktok
+  threads
+}
+
+enum PostStatus {
+  draft
+  pending_approval
+  approved
+  scheduled
+  publishing // operational: cron picked it up and is sending
+  published
+  rejected
+  failed // operational: exhausted retries
+}
+
+enum MediaType {
+  image
+  video
+}
+
+enum MediaSource {
+  upload
+  google_drive
+}
+
+enum CommentType {
+  feedback
+  approval
+  rejection
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String?
+  name         String?
+  role         Role            @default(user)
+  createdAt    DateTime        @default(now())
+
+  accounts     SocialAccount[]
+  posts        Post[]
+  mediaAssets  MediaAsset[]
+  campaigns    Campaign[]
+  comments     Comment[]
+}
+
+// A connected social platform (tokens / credentials). For Bluesky this holds
+// the handle (platformUserId) + App Password (accessToken). Shared team
+// connectors (Meta) can be owned by an admin and used app-wide.
+model SocialAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  platform       Platform
+  accessToken    String?
+  refreshToken   String?
+  expiresAt      DateTime?
+  platformUserId String?
+  shared         Boolean  @default(false) // team-wide connector (Meta model)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([userId])
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  color       String   @default("#4F46E5")
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts       Post[]
+
+  @@index([userId])
+}
+
+model Post {
+  id               String     @id @default(cuid())
+  userId           String
+  title            String
+  platforms        Platform[] @default([])
+  baseCaption      String?
+  captionOverrides Json? // { instagram: "...", bluesky: "..." }
+  status           PostStatus @default(draft)
+  scheduledDate    DateTime?
+  publishedDate    DateTime?
+  mediaUrls        String[]   @default([])
+  campaignId       String?
+  approvalFeedback String?
+  queueOrder       Int        @default(0)
+  retryCount       Int        @default(0)
+  errorLog         String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign         Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  history          PostHistory[]
+  comments         Comment[]
+
+  @@index([status, scheduledDate])
+  @@index([userId])
+  @@index([campaignId])
+}
+
+model MediaAsset {
+  id            String      @id @default(cuid())
+  userId        String
+  name          String
+  fileUrl       String
+  type          MediaType
+  tags          String[]    @default([])
+  source        MediaSource @default(upload)
+  googleDriveId String?
+  thumbnailUrl  String?
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Comment {
+  id        String      @id @default(cuid())
+  postId    String
+  authorId  String?
+  text      String
+  type      CommentType @default(feedback)
+  createdAt DateTime    @default(now())
+
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([postId])
+}
+
+// Per-platform publish result log (one row per platform per publish attempt).
+model PostHistory {
+  id             String     @id @default(cuid())
+  postId         String
+  platform       Platform
+  platformPostId String?
+  status         PostStatus
+  sentAt         DateTime?
+  errorMessage   String?
+  createdAt      DateTime   @default(now())
+
+  post           Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
