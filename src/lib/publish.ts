@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { postToBluesky } from "@/lib/platforms/bluesky";
+import { postToFacebookPage } from "@/lib/platforms/meta";
 
 const MAX_RETRIES = 3;
 
@@ -63,8 +64,26 @@ export async function publishPost(postId: string): Promise<void> {
           },
         });
         results.push({ platform, ok: true });
+      } else if (platform === "facebook") {
+        if (!account) throw new Error("No connected facebook account.");
+        const r = await postToFacebookPage(
+          account.platformUserId ?? "",
+          account.accessToken ?? "",
+          captionFor(post, "facebook"),
+          post.mediaUrls
+        );
+        await prisma.postHistory.create({
+          data: {
+            postId: post.id,
+            platform,
+            platformPostId: r.id,
+            status: "published",
+            sentAt: new Date(),
+          },
+        });
+        results.push({ platform, ok: true });
       } else {
-        // facebook / instagram / tiktok / threads — wired up in later phases.
+        // instagram / tiktok / threads — not built yet.
         throw new Error(`${platform} publishing not implemented yet.`);
       }
     } catch (err: any) {
