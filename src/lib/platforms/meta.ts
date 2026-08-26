@@ -101,3 +101,51 @@ export async function postToFacebookPage(
   if (!res.ok) throw new Error(data.error?.message || "Facebook post failed");
   return { id: data.id };
 }
+
+/** Find the Instagram Business account linked to a Page (if any). */
+export async function getInstagramAccount(
+  pageId: string,
+  pageToken: string
+): Promise<string | null> {
+  const res = await fetch(
+    `${GRAPH}/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
+  );
+  const data = await res.json();
+  return data.instagram_business_account?.id ?? null;
+}
+
+/**
+ * Publish to Instagram (Business account). Two-step: create a media container
+ * from a PUBLIC image/video URL, then publish it. Note: the media URL must be
+ * publicly fetchable by Instagram — private Drive-proxy URLs won't work.
+ */
+export async function postToInstagram(
+  igUserId: string,
+  pageToken: string,
+  caption: string,
+  mediaUrls: string[]
+): Promise<MetaPostResult> {
+  if (mediaUrls.length === 0) {
+    throw new Error("Instagram requires an image or video.");
+  }
+  const url = mediaUrls[0];
+  const isVideo = /\.(mp4|mov|m4v)(\?|$)/i.test(url);
+  const containerBody = new URLSearchParams({ caption, access_token: pageToken });
+  if (isVideo) {
+    containerBody.set("media_type", "REELS");
+    containerBody.set("video_url", url);
+  } else {
+    containerBody.set("image_url", url);
+  }
+  const cRes = await fetch(`${GRAPH}/${igUserId}/media`, { method: "POST", body: containerBody });
+  const cData = await cRes.json();
+  if (!cRes.ok) throw new Error(cData.error?.message || "Instagram container failed");
+
+  const pRes = await fetch(`${GRAPH}/${igUserId}/media_publish`, {
+    method: "POST",
+    body: new URLSearchParams({ creation_id: cData.id, access_token: pageToken }),
+  });
+  const pData = await pRes.json();
+  if (!pRes.ok) throw new Error(pData.error?.message || "Instagram publish failed");
+  return { id: pData.id };
+}

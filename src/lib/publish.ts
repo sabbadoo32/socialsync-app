@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { postToBluesky } from "@/lib/platforms/bluesky";
-import { postToFacebookPage } from "@/lib/platforms/meta";
+import { postToFacebookPage, getInstagramAccount, postToInstagram } from "@/lib/platforms/meta";
+import { postToThreads } from "@/lib/platforms/threads";
+import { postToTikTok } from "@/lib/platforms/tiktok";
 
 const MAX_RETRIES = 3;
 
@@ -39,32 +41,24 @@ export async function publishPost(postId: string): Promise<void> {
   });
 
   const results: { platform: string; ok: boolean; error?: string }[] = [];
+  const accounts = post.user.accounts;
 
   for (const platform of post.platforms) {
-    const account = post.user.accounts.find((a) => a.platform === platform);
     try {
+      let platformPostId: string;
+
       if (platform === "bluesky") {
+        const account = accounts.find((a) => a.platform === "bluesky");
         if (!account) throw new Error("No connected bluesky account.");
         const images = post.mediaUrls.length ? await fetchImages(post.mediaUrls) : [];
         const r = await postToBluesky(
-          {
-            identifier: account.platformUserId ?? "",
-            appPassword: account.accessToken ?? "",
-          },
+          { identifier: account.platformUserId ?? "", appPassword: account.accessToken ?? "" },
           captionFor(post, "bluesky"),
           images
         );
-        await prisma.postHistory.create({
-          data: {
-            postId: post.id,
-            platform,
-            platformPostId: r.uri,
-            status: "published",
-            sentAt: new Date(),
-          },
-        });
-        results.push({ platform, ok: true });
+        platformPostId = r.uri;
       } else if (platform === "facebook") {
+        const account = accounts.find((a) => a.platform === "facebook");
         if (!account) throw new Error("No connected facebook account.");
         const r = await postToFacebookPage(
           account.platformUserId ?? "",
@@ -72,20 +66,45 @@ export async function publishPost(postId: string): Promise<void> {
           captionFor(post, "facebook"),
           post.mediaUrls
         );
-        await prisma.postHistory.create({
-          data: {
-            postId: post.id,
-            platform,
-            platformPostId: r.id,
-            status: "published",
-            sentAt: new Date(),
-          },
-        });
-        results.push({ platform, ok: true });
+        platformPostId = r.id;
+      } else if (platform === "instagram") {
+        // Instagram rides on the connected Facebook Page (needs a linked IG Business account).
+        const account = accounts.find((a) => a.platform === "facebook");
+        if (!account) throw new Error("Connect a Facebook Page first (Instagram posts through it).");
+        const igId = await getInstagramAccount(account.platformUserId ?? "", account.accessToken ?? "");
+        if (!igId) throw new Error("No Instagram Business account linked to the Facebook Page.");
+        const r = await postToInstagram(
+          igId,
+          account.accessToken ?? "",
+          captionFor(post, "instagram"),
+          post.mediaUrls
+        );
+        platformPostId = r.id;
+      } else if (platform === "threads") {
+        const account = accounts.find((a) => a.platform === "threads");
+        if (!account) throw new Error("No connected threads account.");
+        const r = await postToThreads(
+          account.platformUserId ?? "",
+          account.accessToken ?? "",
+          captionFor(post, "threads"),
+          post.mediaUrls
+        );
+        platformPostId = r.id;
+      } else if (platform === "tiktok") {
+        const account = accounts.find((a) => a.platform === "tiktok");
+        if (!account) throw new Error("No connected tiktok account.");
+        const videoUrl = post.mediaUrls.find((u) => /\.(mp4|mov|m4v)(\?|$)/i.test(u));
+        if (!videoUrl) throw new Error("TikTok requires a video.");
+        const r = await postToTikTok(account.accessToken ?? "", captionFor(post, "tiktok"), videoUrl);
+        platformPostId = r.publishId;
       } else {
-        // instagram / tiktok / threads — not built yet.
-        throw new Error(`${platform} publishing not implemented yet.`);
+        throw new Error(`${platform} publishing not implemented.`);
       }
+
+      await prisma.postHistory.create({
+        data: { postId: post.id, platform, platformPostId, status: "published", sentAt: new Date() },
+      });
+      results.push({ platform, ok: true });
     } catch (err: any) {
       const message = err?.message ?? "unknown error";
       await prisma.postHistory.create({
