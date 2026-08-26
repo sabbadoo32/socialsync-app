@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import { navItems } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 
-export default function AppSidebar() {
+export default function AppSidebar({ user }) {
   const pathname = usePathname();
+  const initial = (user?.name || user?.email || "U").charAt(0).toUpperCase();
   return (
     <aside className="w-60 flex-shrink-0 bg-slate-900 text-slate-300 flex flex-col h-screen sticky top-0">
       <div className="px-5 py-5 flex items-center gap-2.5 border-b border-slate-800">
@@ -38,12 +39,24 @@ export default function AppSidebar() {
         })}
       </nav>
       <div className="px-3 py-4 border-t border-slate-800">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-800 cursor-pointer">
+        <div className="flex items-center gap-2.5 px-3 py-2">
           <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-white text-xs font-medium">
-            U
+            {initial}
           </div>
-          <span className="text-sm text-slate-400">My Account</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-slate-200 truncate">{user?.name || user?.email || "Not signed in"}</p>
+            {user?.role && (
+              <p className="text-[11px] text-slate-500 capitalize">{user.role === "admin" ? "Approver" : "Member"}</p>
+            )}
+          </div>
         </div>
+        {user && (
+          <form action="/auth/signout" method="post" className="px-3 mt-1">
+            <button type="submit" className="w-full text-left text-xs text-slate-400 hover:text-white py-1">
+              Sign out
+            </button>
+          </form>
+        )}
       </div>
     </aside>
   );

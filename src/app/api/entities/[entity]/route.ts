@@ -69,6 +69,10 @@ export async function POST(
   if (USER_SCOPED.has(entity)) {
     data.userId = await getCurrentUserId();
   }
+  // Normalize emails so the login allowlist matches regardless of case.
+  if (entity === "User" && typeof data.email === "string") {
+    data.email = data.email.toLowerCase();
+  }
 
   const created = await delegateFor(entity).create({ data });
   return NextResponse.json(recordToApi(created), { status: 201 });

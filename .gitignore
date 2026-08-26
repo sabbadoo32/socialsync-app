@@ -9,6 +9,8 @@ out
 
 # Secrets / scratch — never commit
 stuff.txt
+vercel-env.txt
+DEPLOY.md
 
 # Reference copies of the Base44 source (not part of the deployed app)
 socialsync_src
