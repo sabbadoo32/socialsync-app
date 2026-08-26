@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 // Paths that never require a session.
-const PUBLIC_PREFIXES = ["/login", "/auth", "/api/cron", "/api/platforms"];
+const PUBLIC_PREFIXES = ["/login", "/auth", "/api/cron", "/api/platforms", "/api/health"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
