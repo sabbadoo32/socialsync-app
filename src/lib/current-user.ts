@@ -13,10 +13,17 @@ export type CurrentUser = {
  * (the allowlist / role store). Returns null if not authenticated or not on the team.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+  let user = null;
+  try {
+    const supabase = createClient();
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    return null;
+  }
   if (!user?.email) return null;
 
   const member = await prisma.user.findUnique({
