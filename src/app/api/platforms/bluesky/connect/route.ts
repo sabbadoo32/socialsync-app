@@ -2,33 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyBlueskyConnection } from "@/lib/platforms/bluesky";
+import { getCurrentUserId } from "@/lib/current-user";
 
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  userId: z.string().min(1),
   identifier: z.string().min(1),
   appPassword: z.string().min(1),
 });
 
 /**
- * Verify Bluesky App Password credentials and store them on the user's account.
- * NOTE: app passwords are stored as-is for now; encrypt at rest before production.
+ * Verify a Bluesky App Password and store it on the current user's account.
+ * (App passwords are stored as-is for now; encrypt at rest before wide use.)
  */
 export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Handle and app password are required" }, { status: 400 });
   }
-  const { userId, identifier, appPassword } = parsed.data;
+  const { identifier, appPassword } = parsed.data;
 
   try {
+    const userId = await getCurrentUserId();
     const { did, handle } = await verifyBlueskyConnection({ identifier, appPassword });
 
-    const account = await prisma.socialAccount.upsert({
+    await prisma.socialAccount.upsert({
       where: { userId_platform: { userId, platform: "bluesky" } },
       create: {
         userId,
@@ -44,7 +42,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ ok: true, handle, did, accountId: account.id });
+    return NextResponse.json({ ok: true, handle, did });
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message ?? "connection failed" },

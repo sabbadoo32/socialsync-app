@@ -1,4 +1,4 @@
-import { LayoutDashboard, PenSquare, ListOrdered, CalendarDays, Image, FolderKanban, Users } from "lucide-react";
+import { LayoutDashboard, PenSquare, ListOrdered, CalendarDays, Image, FolderKanban, Users, Link2 } from "lucide-react";
 
 export const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -7,6 +7,7 @@ export const navItems = [
   { label: "Calendar", path: "/calendar", icon: CalendarDays },
   { label: "Media Library", path: "/media", icon: Image },
   { label: "Campaigns", path: "/campaigns", icon: FolderKanban },
+  { label: "Connected Accounts", path: "/accounts", icon: Link2 },
   { label: "Team", path: "/team", icon: Users },
 ];
 
